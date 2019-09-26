@@ -1,30 +1,74 @@
 ---
-title: "Test"
-author: "Shosuke Ohtera"
-date: "2019/9/26"
-output: html_document
+title: "NDB dammy data test"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# AMI dataset
+
+## データ読み込み
+医科REテーブル
+```{r}
+(amiIkaRe <- read.csv("data/AMI/IKA/RE.csv", header = TRUE))
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+診療年月ごとの件数
+```{r}
+summary(factor(amiIkaRe$診療年月))
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+医科SIテーブルを読み込み
+```{r}
+(amiIkaSi <- read.csv("data/AMI/IKA/SI.csv", header = TRUE))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## マスター準備
+H28診療行為マスターを支払基金ウェブサイトからダウンロード
+```{r}
+library(rvest)
+htmlH28Proc <- read_html("https://www.ssk.or.jp/seikyushiharai/tensuhyo/kihonmasta/h28/kihonmasta_01.html")
+htmlH28Proc
+
+library(magrittr)
+library(tidyverse)
+
+allURL <- htmlH28Proc %>% 
+  html_nodes(css = "a[href *= 's_ALL']") %>% 
+  html_attr("href") %>% 
+  str_c("https://www.ssk.or.jp/seikyushiharai/tensuhyo/kihonmasta/h28/", .)
+
+fileName <- htmlH28Proc %>% 
+  html_nodes(css = "a[href *= 's_ALL']") %>% 
+  html_attr("href") %>% 
+  str_split(., pattern = "/") %>% 
+  extract2(1) %>% 
+  extract2(2) %>% 
+  str_replace(.,"zip", "csv")
+
+temp <- tempfile()
+download.file(allURL, temp, mode="wb")
+unzip(temp, fileName)
+allDataProcH28 <- read.csv(fileName, header = FALSE, fileEncoding = "sjis")
+
+allDataProcH28
+
+```
+
+# 集計
+診療行為別ID１数
+```{r}
+# install.packages("tidyverse")
+library(tidyverse)
+
+amiIkaRe %>% 
+  filter(診療年月==42808) %>% 
+  left_join(amiIkaSi, by = "レセプト通番") %>% 
+  group_by(診療行為コード) %>% 
+  summarise(n=n_distinct(ID1)) %>% 
+  inner_join(allDataProcH28 %>% mutate(診療行為コード=V3, 診療行為名=V5), by = "診療行為コード") %>% 
+  select(診療行為コード, 診療行為名, n)
+
+```
+
