@@ -1,0 +1,66 @@
+---
+title: "NDB dammy data test"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+(amiIkaRe <- read.csv("../AMI/IKA/RE.csv", header = TRUE))
+```
+
+```{r}
+summary(factor(amiIkaRe$診療年月))
+```
+
+```{r}
+(amiIkaSi <- read.csv("../AMI/IKA/SI.csv", header = TRUE))
+```
+
+```{r}
+library(rvest)
+htmlH28Proc <- read_html("https://www.ssk.or.jp/seikyushiharai/tensuhyo/kihonmasta/h28/kihonmasta_01.html")
+htmlH28Proc
+```
+
+```{r}
+library(magrittr)
+library(tidyverse)
+
+allURL <- htmlH28Proc %>% 
+  html_nodes(css = "a[href *= 's_ALL']") %>% 
+  html_attr("href") %>% 
+  str_c("https://www.ssk.or.jp/seikyushiharai/tensuhyo/kihonmasta/h28/", .)
+
+fileName <- htmlH28Proc %>% 
+  html_nodes(css = "a[href *= 's_ALL']") %>% 
+  html_attr("href") %>% 
+  str_split(., pattern = "/") %>% 
+  extract2(1) %>% 
+  extract2(2) %>% 
+  str_replace(.,"zip", "csv")
+
+temp <- tempfile()
+download.file(allURL, temp, mode="wb")
+unzip(temp, fileName)
+allDataProcH28 <- read.csv(fileName, header = FALSE, fileEncoding = "sjis")
+
+allDataProcH28
+
+```
+
+```{r}
+# install.packages("tidyverse")
+library(tidyverse)
+
+amiIkaRe %>% 
+  filter(診療年月==42808) %>% 
+  left_join(amiIkaSi, by = "レセプト通番") %>% 
+  group_by(診療行為コード) %>% 
+  summarise(n=n_distinct(ID1)) %>% 
+  inner_join(allDataProcH28 %>% mutate(診療行為コード=V3, 診療行為名=V5), by = "診療行為コード") %>% 
+  select(診療行為コード, 診療行為名, n)
+
+```
+
