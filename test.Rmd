@@ -1,6 +1,8 @@
 ---
 title: "NDB dammy data test"
-output: md_document
+output:
+  md_document:
+    variant: markdown_github
 ---
 
 # AMI dataset
