@@ -1,9 +1,6 @@
 ---
 title: "NDB dammy data test"
-output:
-  html_document:
-    df_print: paged
-  pdf_document: default
+output: md_document
 ---
 
 # AMI dataset
